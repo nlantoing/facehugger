@@ -29,7 +29,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 "use strict";
 
 /**
- * 
+ * Build ajax request from internal link to prevent page reload on navigation.
+ * @class
+ * @parameter {Service} service Service instance.
+ * @parameter {String} query The querySelector pattern for links and buttons we want to listen to.
+ * @parameter {String} containerQuery The querySelector pattern for the main container.
+ * @parameter {Function} [callback] If defined, will be called on fetch event, will recieve the current container and the new one as parameters.
  */
 function Facehugger(service, query, containerQuery, callback){
     if(!service) return false;
@@ -38,17 +43,9 @@ function Facehugger(service, query, containerQuery, callback){
     this.containerQuery = containerQuery;
     this.callback = callback || null;
 
-
+    //store loaded scripts and css files
     this.scripts = [];
     this.stylesheets = [];
-
-    this.getContent = function(event){
-        var url = event.target.getAttribute('href');
-
-        event.preventDefault();
-	var ret = this.service.get(url,true, this._parseResults.bind(this));
-        history.pushState(null,null,url);
-    }.bind(this);
 
     //get current scripts and stylesheets
     var scripts = document.getElementsByTagName('script');
@@ -66,11 +63,27 @@ function Facehugger(service, query, containerQuery, callback){
         if(href) this.stylesheets.push(href);
     }
 
-    this.pond(document);
+    //build the getContent method
+    this.getContent = function(event){
+        var url = event.target.getAttribute('href');
+
+        event.preventDefault();
+	var ret = this.service.get(url,true, this._parseResults.bind(this));
+        history.pushState(null,null,url);
+    }.bind(this);
+
+    //bind eventsListener
+    this.implant(document);
+
     return this;
 };
 
-Facehugger.prototype.pond = function(host){
+/**
+ * Seek for query pattern and will bind the eventListener to theme.
+ * @public
+ * @parameter {DOMElement} host The node where we are looking for [query] elements.
+ */
+Facehugger.prototype.implant = function(host){
     var tags = host.querySelectorAll(this.query), len = tags.length, i = 0;
     for(i;i<len;i++){
 	//TODO: find a way to check if the listener have already be bounded to the element
@@ -79,6 +92,11 @@ Facehugger.prototype.pond = function(host){
     }
 };
 
+/**
+ * Build the new content node and append it or call [callback] if defined.
+ * @private
+ * @parameter {XMLHttpRequest} result The request object.
+ */
 Facehugger.prototype._parseResults = function(result){
     var newDocument = (result.responseXML) ? result.responseXML: this._parseTextResponse();
     var container = window.document.querySelector(this.containerQuery);
@@ -87,7 +105,7 @@ Facehugger.prototype._parseResults = function(result){
 
     //loading external ressources.
     this._getRessources(newDocument);
-    this.pond(newContent);
+    this.implant(newContent);
 
     if(title) document.title = title.innerHTML;
 
@@ -99,12 +117,21 @@ Facehugger.prototype._parseResults = function(result){
     }
 };
 
+/**
+ * If the response object is not XML, build a node with the innerHTML attribute.
+ * @private
+ * @parameter {String} result The responseText element
+ */
 Facehugger.prototype._parseTextResponse = function(result){
     var tmp = document.createElement('article');
     tmp.innerHTML = result;
     return tmp;
 };
 
+/**
+ * Retrieve CSS and Script elements from the new page.
+ * @private
+ */
 Facehugger.prototype._getRessources = function(dom){
     //get current scripts and stylesheets
     var scripts = dom.getElementsByTagName('script');
@@ -114,8 +141,7 @@ Facehugger.prototype._getRessources = function(dom){
     for(i;i<len;i++){
         var src = scripts[i].getAttribute('src');
         if(src && this.scripts.indexOf(src) === -1){
-	    //TODO
-            __E.loader.loadScript('text/javascript', src, false);
+            this._loadScript('text/javascript', src, false);
             this.scripts.push(src);
         }
     }
@@ -124,9 +150,45 @@ Facehugger.prototype._getRessources = function(dom){
     for(i;i<len;i++){
         var href = scripts[i].getAttribute('href');
         if(href && this.stylesheets.indexOf(href) === -1){
-	    //TODO
-            __E.loader.loadCss(href);
+	    this._loadCss(href);
             this.stylesheets.push(href);
         }
     }
 };
+
+/**
+ * load script ressource
+ * @private
+ * @param {String} type ressource type
+ * @param {String} src ressource uri
+ * @param {Boolean} persist If not true the script node will be removed on load event.
+ * @return The node element.
+ */
+Facehugger.prototype._loadScript = function(type,src,persist){
+    var a = document.createElement('script');
+    a.src = src;
+    a.type = type;
+
+    if(!persist){
+        a.addEventListener('load',function(){
+            document.head.removeChild(this);
+        },false);
+    }
+    document.head.appendChild(a);
+    return a;
+};
+
+/**
+ * load a css ressource
+ * @private
+ * @param {String} href The stylesheet uri
+ * @return The node element.
+ */
+Facehugger.prototype._loadCss = function(href){
+    var a = document.createElement('link');
+    a.rel = 'stylesheet';
+    a.href = href;
+    a.type = 'text/css';
+    document.head.appendChild(a);
+    return a;
+}
