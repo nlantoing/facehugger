@@ -59,7 +59,7 @@ function Facehugger(service, query, containerQuery, callback){
 
     var len = stylesheets.length, i = 0;
     for(i;i<len;i++){
-        var href = scripts[i].getAttribute('href');
+        var href = stylesheets[i].getAttribute('href');
         if(href) this.stylesheets.push(href);
     }
 
@@ -148,7 +148,7 @@ Facehugger.prototype._getRessources = function(dom){
 
     var len = stylesheets.length, i = 0;
     for(i;i<len;i++){
-        var href = scripts[i].getAttribute('href');
+        var href = stylesheets[i].getAttribute('href');
         if(href && this.stylesheets.indexOf(href) === -1){
 	    this._loadCss(href);
             this.stylesheets.push(href);
