@@ -191,4 +191,4 @@ Facehugger.prototype._loadCss = function(href){
     a.type = 'text/css';
     document.head.appendChild(a);
     return a;
-}
+};
