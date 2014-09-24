@@ -118,14 +118,13 @@ Facehugger.prototype._parseResults = function(result){
 };
 
 /**
- * If the response object is not XML, build a node with the innerHTML attribute.
+ * If the response object is not XML, build a DOM document from it.
  * @private
  * @parameter {String} result The responseText element
  */
 Facehugger.prototype._parseTextResponse = function(result){
-    var tmp = document.createElement('article');
-    tmp.innerHTML = result;
-    return tmp;
+    var parser = new DOMParser();
+    return parser.parseFromString(result, 'text/html');
 };
 
 /**
