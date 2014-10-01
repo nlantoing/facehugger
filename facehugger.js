@@ -33,14 +33,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * @class
  * @parameter {Service} service Service instance.
  * @parameter {String} query The querySelector pattern for links and buttons we want to listen to.
- * @parameter {String} containerQuery The querySelector pattern for the main container.
- * @parameter {Function} [callback] If defined, will be called on fetch event, will recieve the current container and the new one as parameters.
+ * @parameter {Function} callback A function to be called on fetch event, will receive the new document and the type of event that triggered the call as parameters.
  */
-function Facehugger(service, query, containerQuery, callback){
+function Facehugger(service, query, callback){
     if(!service) return false;
     this.service = service;
     this.query = query || 'a';
-    this.containerQuery = containerQuery;
     this.callback = callback || null;
 
     //store loaded scripts and css files
@@ -63,17 +61,33 @@ function Facehugger(service, query, containerQuery, callback){
         if(href) this.stylesheets.push(href);
     }
 
+    this._getContent = function (url, type) {
+        this.service.get(
+            url, true,
+            function (request) { this._parseResults(request, type); }.bind(this)
+        );
+    };
+
     //build the getContent method
     this.getContent = function(event){
-        var url = event.target.getAttribute('href');
+        var target = event.target;
+        var url = target.getAttribute('href');
+
+        if (target.tagName !== 'A')
+            target = target.parentNode;
 
         event.preventDefault();
-	var ret = this.service.get(url,true, this._parseResults.bind(this));
+        this._getContent(url, 'click');
         history.pushState(null,null,url);
     }.bind(this);
 
     //bind eventsListener
     this.implant(document);
+
+    // Get the content of the new url when the user uses Back or Forward
+    window.onpopstate = function () {
+        this._getContent(document.location.href, 'onpopstate');
+    }.bind(this);
 
     return this;
 };
@@ -96,25 +110,17 @@ Facehugger.prototype.implant = function(host){
  * Build the new content node and append it or call [callback] if defined.
  * @private
  * @parameter {XMLHttpRequest} result The request object.
+ * @parameter {String} type The type of event that triggered the call.
  */
-Facehugger.prototype._parseResults = function(result){
-    var newDocument = (result.responseXML) ? result.responseXML: this._parseTextResponse();
-    var container = window.document.querySelector(this.containerQuery);
-    var newContent = newDocument.querySelector(this.containerQuery);
-    var title = newDocument.getElementsByTagName('title')[0];
+Facehugger.prototype._parseResults = function(result, type){
+    var newDocument = ((result.responseXML) ? result.responseXML :
+                       this._parseTextResponse(result.response));
 
     //loading external ressources.
     this._getRessources(newDocument);
-    this.implant(newContent);
+    this.implant(newDocument);
 
-    if(title) document.title = title.innerHTML;
-
-    if(this.callback) this.callback(container, newContent);
-    else{
-	while(container.firstChild) container.removeChild(container.firstChild);
-	for(var i = 0, len = newContent.childNodes.length; i< len; i++)
-	    container.appendChild(newContent.childNodes[0]);
-    }
+    this.callback(newDocument, type);
 };
 
 /**
