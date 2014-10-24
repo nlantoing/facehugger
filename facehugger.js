@@ -71,10 +71,11 @@ function Facehugger(service, query, callback){
     //build the getContent method
     this.getContent = function(event){
         var target = event.target;
-        var url = target.getAttribute('href');
 
         if (target.tagName !== 'A')
             target = target.parentNode;
+
+        var url = target.getAttribute('href');
 
         event.preventDefault();
         this._getContent(url, 'click');
